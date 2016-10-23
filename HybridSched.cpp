@@ -53,13 +53,7 @@ int HybridSched::run(uint32_t time_available) {
 	    ASSERT("scheduler not initialized");
 	}
 
-	// find best transition if any
-	// TODO - first phase: prefer change mode as many as possible
-
-
-	// if domain is false and transition available take it
-
-	bestTrans = _currentMode->getAvailableNext();
+	bestTrans = _currentMode->getBestTransition();
 
 	if (bestTrans){
 	    if (0 == bestTrans->getNext()){
@@ -87,48 +81,37 @@ int HybridSched::run(uint32_t time_available) {
 int HybridSched::addTaskSpec(HSMode* initialMode){
     //DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_TRACE, "start");
     int ans;
-    DEBUG_TRACE_START();
-
-    HSMode** initArray = new HSMode*[2];
-    initArray[0] = initialMode;
-    initArray[1] = 0;
-    ans = addTaskSpec(initArray);
-
-    DEBUG_TRACE_RETURN(ans);
-}
-int HybridSched::addTaskSpec(HSMode** initialMode){
-    HSAutomata* newAuto = 0;
-    HSAutomata* oldAuto = 0;
-    HSMode* tempMode = 0;
+    HSAutomata* newAuto;
 
     DEBUG_TRACE_START();
-
-    if (!initialMode || !initialMode[0]){
-		ASSERT("null mode");
-	}
 
     newAuto = new HSAutomata();
-    while (initialMode[0]){
-        newAuto->addInitialMode(initialMode[0]);
-        initialMode++;
-        if (0 == initialMode[0]){
-            DEBBUG_PRINTF_info("boo!")
-            //TODO - boo
-        }
-    }
+    newAuto->addInitialMode(initialMode);
 
     newAuto->cutDeadEnds();
     if (newAuto->getInitialsModes()->empty()){
         DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_WARNING, "new spec with no initial mode");
     }
+    ans = addTaskSpec(newAuto);
 
-	if (0 == _automata){
-	    _automata = newAuto;
+    DEBUG_TRACE_RETURN(ans);
+}
+int HybridSched::addTaskSpec(HSAutomata* specAuto){
+    HSAutomata* oldAuto = 0;
+
+    DEBUG_TRACE_START();
+
+    if (specAuto->getInitialsModes()->empty()){
+		ASSERT("empty spec auto mode");
+	}
+
+    if (0 == _automata){
+	    _automata = specAuto;
 	} else {
 	    oldAuto = _automata;
-	    _automata = _automata->product(newAuto, HS_SLOT_SIZE_MICROS);
+	    _automata = _automata->product(specAuto, HS_SLOT_SIZE_MICROS);
 
-	    delete newAuto; newAuto=0;
+	    delete specAuto; specAuto=0;
 	    delete oldAuto; oldAuto=0;
 	}
 
@@ -139,7 +122,8 @@ int HybridSched::addPeriodTask(Task* task, uint16_t period_slots_min, uint16_t p
 	// TODO - potential memory leak here
 	//hsVariable_t* onVar;  // zero in "on" mode
 
-    HSMode** initModesArr;
+    //HSMode** initModesArr;
+    HSAutomata* newAuto;
     HSMode** allModesArr;
     //char* taskNameOn, taskNameOff;
 
@@ -155,41 +139,38 @@ int HybridSched::addPeriodTask(Task* task, uint16_t period_slots_min, uint16_t p
         ASSERT("(_generalVarsCount >= HS_MAX_GENERAL_VARS)");
     }
 
-    allModesArr = new HSMode*[period_slots_max + 1];         // local (free here)
-    initModesArr = new HSMode*[period_slots_min + 2];
+    allModesArr = new HSMode*[period_slots_max + 1];         // local (free here) (malloc)
+    //initModesArr = new HSMode*[period_slots_min + 2];
+    newAuto = new HSAutomata();
     //initModesArr[period_slots_max] = 0;
 
     allModesArr[0] = new HSMode(task->name);
     allModesArr[0]->addTask(task);
-    initModesArr[0] = allModesArr[0];
+    newAuto->addInitialMode(allModesArr[0]);
 
     for (i = 1; i < period_slots_min; i++) {
-        allModesArr[i] = new HSMode("period_idle");
+        allModesArr[i] = new HSMode("idle");
         allModesArr[i-1]->addTransition(allModesArr[i], HSConditionTrue::getSingleton(),0);
-        initModesArr[i] = allModesArr[i];
+        newAuto->addInitialMode(allModesArr[i]);
     }
 
     allModesArr[i-1]->addTransition(allModesArr[0], HSConditionTrue::getSingleton(),0);
 
     for (i = period_slots_min; i < period_slots_max; i++) {
-        allModesArr[i] = new HSMode("period_idle");
+        allModesArr[i] = new HSMode("idle");
         allModesArr[i-1]->addTransition(allModesArr[i], HSConditionTrue::getSingleton(),(i-period_slots_min));
         allModesArr[i]->addTransition(allModesArr[0], HSConditionTrue::getSingleton(),0);
     }
 
     if (period_slots_max > period_slots_min){
-        initModesArr[period_slots_min] = allModesArr[period_slots_min];
-        initModesArr[period_slots_min + 1] = 0;
-    } else {
-        initModesArr[period_slots_min] = 0;
+        newAuto->addInitialMode(allModesArr[period_slots_min]);
     }
 
 
     free(allModesArr); allModesArr=0;
 
-    ans = addTaskSpec(initModesArr);
+    ans = addTaskSpec(newAuto);
 	DEBUG_TRACE_RETURN(ans);
-
 
 #if 0 // TODO
     HSMode* taskOnMode;
@@ -279,7 +260,7 @@ int HybridSched::reset(uint32_t slot_time_micros){
 }
 
 int HybridSched::exacuteModeTasks(HSMode* mode){
-	Task** tasks;
+	const set<Task*>* tasks;
 	int res = HS_RETVAL_OK;
 
 	DEBUG_TRACE_START();
@@ -292,32 +273,32 @@ int HybridSched::exacuteModeTasks(HSMode* mode){
 	// execute all tasks
 	// TODO - use also HS_MAX_TASKS_IN_MODE
 	tasks = mode->getTasks();
-	while(tasks && *tasks){
-		switch ((*tasks)->type) {
+	for (set<Task*>::iterator it = tasks->begin(); it != tasks->end(); ++it) {
+
+		switch ((*it)->type) {
 			case HS_TASK_TYPE_PRINT:
-				printf("running dummy task: %s\n", (*tasks)->name);
+				printf("running dummy task: %s\n", (*it)->name);
 				break;
 			case HS_TASK_TYPE_REGULAR:
-				(*tasks)->function();
+				(*it)->function();
 
 				break;
 			case HS_TASK_TYPE_INC:
-				if (!(*tasks)->value){
+				if (!(*it)->value){
 					ASSERT("null value");
 				}
 
-				(*(*tasks)->value)++;
+				(*(*it)->value)++;
 
 				break;
 			case HS_TASK_TYPE_TEST:
 				if (_testQ){
-					_testQ->push_back((*tasks)->name);
+					_testQ->push_back((*it)->name);
 				}
 				break;
 			default:
 				break;
 		}
-		tasks++;
 	}
 
 	DEBUG_TRACE_RETURN(res);

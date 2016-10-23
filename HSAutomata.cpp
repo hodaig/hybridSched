@@ -112,8 +112,8 @@ HSAutomata* HSAutomata::product(HSAutomata* other, uint32_t slot_size_micros){
     map<pair<HSMode*,HSMode*>,HSMode*> visited;
     queue<pair<HSMode*,HSMode*> > openList;
     set<pair<HSMode*,HSMode*> > initialPairs;
-    HSTransition** allTrans1;
-    HSTransition** allTrans2;
+    const set<HSTransition*>* allTrans1;
+    const set<HSTransition*>* allTrans2;
     HSMode* toMode;
 
     HSAutomata* prodAut = 0;
@@ -149,15 +149,13 @@ HSAutomata* HSAutomata::product(HSAutomata* other, uint32_t slot_size_micros){
         DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_BEDUG, " ");
 
         allTrans1 = cur.first->getTransitions();
-        while (allTrans1[0]){
+        for (set<HSTransition*>::iterator it1 = allTrans1->begin(); it1 != allTrans1->end(); ++it1) {
             allTrans2 = cur.second->getTransitions();
-            while (allTrans2[0]){
-                if (allTrans1[0]->getNext()->getMaxTimeMicros() + allTrans2[0]->getNext()->getMaxTimeMicros() <= slot_size_micros){
-                    openList.push(pair<HSMode*,HSMode*>(allTrans1[0]->getNext(), allTrans2[0]->getNext()));
+            for (set<HSTransition*>::iterator it2 = allTrans2->begin(); it2 != allTrans2->end(); ++it2) {
+                if ((*it1)->getNext()->getMaxTimeMicros() + (*it2)->getNext()->getMaxTimeMicros() <= slot_size_micros){
+                    openList.push(pair<HSMode*,HSMode*>((*it1)->getNext(), (*it2)->getNext()));
                 }
-                allTrans2++;
             }
-            allTrans1++;
         }
     }
 
@@ -166,20 +164,24 @@ HSAutomata* HSAutomata::product(HSAutomata* other, uint32_t slot_size_micros){
     for (map<pair<HSMode*,HSMode*>,HSMode*>::iterator it=visited.begin(); it!=visited.end(); ++it){
         pair<HSMode*,HSMode*> curInter = it->first;
         HSMode* curMode = it->second;
+        if (!curMode){
+            continue;
+        }
+
         DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_BEDUG, " ");
 
         allTrans1 = curInter.first->getTransitions();
-        while (allTrans1[0]){
+        for (set<HSTransition*>::iterator it1 = allTrans1->begin(); it1 != allTrans1->end(); ++it1) {
             allTrans2 = curInter.second->getTransitions();
-            while (allTrans2[0]){
+            for (set<HSTransition*>::iterator it2 = allTrans2->begin(); it2 != allTrans2->end(); ++it2) {
                 toMode = 0;
-                toMode = visited[pair<HSMode*, HSMode*>(allTrans1[0]->getNext(), allTrans2[0]->getNext())];
+                toMode = visited[pair<HSMode*, HSMode*>((*it1)->getNext(), (*it2)->getNext())];
                 if (toMode) {
-                    curMode->addTransition(toMode, new HSConditionAND(allTrans1[0]->getCond(), allTrans2[0]->getCond()), allTrans1[0]->getCost());
+                    curMode->addTransition(toMode,
+                            new HSConditionAND((*it1)->getCond(), (*it2)->getCond()),
+                            (*it1)->getCost() + (*it2)->getCost());
                 }
-                allTrans2++;
             }
-            allTrans1++;
         }
     }
 
@@ -355,20 +357,14 @@ HSMode** HSAutomata::product(HSMode** auto1, unsigned int initialCount1,
 #endif
 
 HSMode* HSAutomata::unionMode(HSMode* mode1, HSMode* mode2){
-    // TODO - informative name for debugging
-    //DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_TRACE, "start");
     DEBUG_TRACE_START();
+
     std::string newName;
     newName.append(mode1->getName());
-    DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_BEDUG, " ");
     newName.append("}X{");
-    DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_BEDUG, " ");
     newName.append(mode2->getName());
-    DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_BEDUG, " ");
     HSMode* newMode = new HSMode(newName.c_str());
-    DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_BEDUG, " ");
-    HybridSched::Task** tasks;
-    DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_BEDUG, " ");
+    const set<HybridSched::Task*>* tasks;
 
     if (0 == mode1){
         ASSERT("null mode1")
@@ -378,18 +374,21 @@ HSMode* HSAutomata::unionMode(HSMode* mode1, HSMode* mode2){
 	}
 
 	tasks = mode1->getTasks();
-	mode1->getDomain();
 	DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_BEDUG, "add tasks of %s", mode1->getName());
-	while (0 != tasks[0]){
-		newMode->addTask(tasks[0]);
-		tasks++;
-	}
-	DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_BEDUG, "add tasks of %s", mode2->getName());
+	for (set<HybridSched::Task*>::iterator it = tasks->begin(); it != tasks->end(); ++it) {
+	    if (0 == (*it)){
+	        ASSERT("null task in mode");
+	    }
+	    newMode->addTask(*it);
+    }
 
 	tasks = mode2->getTasks();
-	while (*tasks){
-		newMode->addTask(*tasks);
-		tasks++;
+	DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_BEDUG, "add tasks of %s", mode2->getName());
+	for (set<HybridSched::Task*>::iterator it = tasks->begin(); it != tasks->end(); ++it) {
+	    if (0 == (*it)){
+	        ASSERT("null task in mode");
+	    }
+		newMode->addTask(*it);
 	}
 	newMode->setDomain(new HSConditionAND(mode1->getDomain(), mode2->getDomain()));
 	//DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_TRACE, "end");
@@ -398,7 +397,7 @@ HSMode* HSAutomata::unionMode(HSMode* mode1, HSMode* mode2){
 	return newMode;
 
 }
-
+#if 0
 HSMode** HSAutomata::OverflowModeFilter(HSMode** initial, unsigned int initialCount, uint32_t max_slot_time_micros){
     HSMode** newInitial;
     unsigned int newInitialCount = 0;
@@ -458,8 +457,8 @@ HSMode** HSAutomata::OverflowModeFilter(HSMode** initial, unsigned int initialCo
     DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_BEDUG," ");
 
 return newInitial;
-
 }
+#endif
 
 #if 0 // TODO
 HSMode* HSAutomata::cutDeadEnds(HSMode* initial){

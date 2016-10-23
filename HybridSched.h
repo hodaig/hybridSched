@@ -65,7 +65,7 @@ public:
 	int reset(uint32_t slot_time_micros);
 
 	int addTaskSpec(HSMode* initialMode);
-	int addTaskSpec(HSMode** initialMode);
+	int addTaskSpec(HSAutomata* specAuto);
 	int addPeriodTask(Task* task, uint16_t period_slots_min, uint16_t period_slots_max);
 
 	// for testing

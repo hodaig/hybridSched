@@ -178,10 +178,10 @@ bool testOverflowPeriodic(){
     HybridSched hs1;
     outQ_before.clear();
     hs1.setTestQ(&outQ_before);
-    hs1.addPeriodTask(&t3, 1, 2);
-    hs1.addPeriodTask(&t2, 1, 2);
+    hs1.addPeriodTask(&t3, 2, 3);
+    hs1.addPeriodTask(&t2, 3, 3);
 
-    if (false == runSched(&hs1, 2)){
+    if (false == runSched(&hs1, 15)){
         DEBUG_TRACE_RETURN(false);
     }
 

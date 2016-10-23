@@ -12,19 +12,19 @@
 HSMode::HSMode() :
 		_name("noName"),
 		_dom(HSConditionTrue::getSingleton()),
-		_tasksCount(0),
-		_transCount(0) {
-    _transitions[_transCount] = 0;
-    _tasks[_tasksCount] = 0; // null terminate this array
+		_tasks(),
+		_transitions(),
+		_modeMaxTimeMicros(0),
+		_maxTimeValid(false){
 }
 
 HSMode::HSMode(const char* name) :
 		_name(name),
 		_dom(HSConditionTrue::getSingleton()),
-		_tasksCount(0),
-		_transCount(0){
-    _transitions[_transCount] = 0;
-    _tasks[_tasksCount] = 0; // null terminate this array
+		_tasks(),
+		_transitions(),
+		_modeMaxTimeMicros(0),
+		_maxTimeValid(false) {
 }
 
 HSMode::~HSMode() {}
@@ -33,18 +33,17 @@ HSMode::~HSMode() {}
 void HSMode::addTask(HybridSched::Task* task){
     DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_LOG, "add task %s to mode %s", task->name, getName());
 
-	if (_tasksCount >= HS_MAX_TASKS_IN_MODE){
-		// TODO - return error
-	    ASSERT("task overflow in mode");
-		return;
-	}
 	if (!task){
 	    ASSERT("null task added");
 		return;
 	}
 
-	_tasks[_tasksCount++] = task;
-	_tasks[_tasksCount] = 0; // null terminate this array
+	if (0 != _tasks.count(task)){
+	    ASSERT("adding twice the same task to a mode");
+	}
+
+	_tasks.insert(task);
+	_maxTimeValid = false;
 }
 
 void HSMode::addTransition(HSMode* toMode, HSCondition* cond, uint32_t cost){
@@ -52,23 +51,17 @@ void HSMode::addTransition(HSMode* toMode, HSCondition* cond, uint32_t cost){
 }
 
 void HSMode::addTransition(HSMode* toMode, HSCondition* cond, const set<hsVariable_t*>* reset, uint32_t cost){
-    DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_LOG, "_tasksCount=%d", _transCount);
-	if (_transCount >= HS_MAX_TRANSITIONS_FROM_MODE){
-		ASSERT("_transCount >= HS_MAX_TRANSITIONS_FROM_MODE");
-		return;
-	}
-	if (!toMode){
+
+    if (!toMode){
 		ASSERT("!toMode");
 		return;
 	}
 
 	if (0 == reset){
-	_transitions[_transCount] = new HSTransition(cond, toMode, cost);
+	_transitions.insert(new HSTransition(cond, toMode, cost));
 	} else {
-	_transitions[_transCount] = new HSTransition(cond, toMode, reset, cost);
+	_transitions.insert(new HSTransition(cond, toMode, reset, cost));
 	}
-	_transCount++;
-	_transitions[_transCount] = 0;
 }
 
 void HSMode::setDomain(HSCondition* dom){
@@ -79,38 +72,37 @@ HSCondition* HSMode::getDomain(){
 	return _dom;
 }
 
-HSTransition** HSMode::getTransitions(){
+const set<HSTransition*>* HSMode::getTransitions(){
 	// TODO - debug
-	if (0 == _transitions[0]){
-	    DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_LOG, "0 == _transitions[0]");
+	if (_transitions.empty()){
+	    DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_LOG, "_transitions.empty()");
 	}
 
-	// TODO - it's open privacy issue
-	return _transitions;
+	// TODO - it's makes privacy issue
+	return &_transitions;
 }
 
 unsigned int HSMode::getAvailableTransitions(set<HSTransition*>* retTransitionsSet){
-    unsigned int i;
+    DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_WARNING, "using problematic function");
 
     if (!retTransitionsSet->empty()) {
         DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_WARNING, "filling a non empty set of transitions");
     }
 
-    for (i = 0; i < _transCount; ++i) {
-        if (0 == _transitions[i]) {
+    for (set<HSTransition*>::iterator it = _transitions.begin(); it != _transitions.end(); ++it) {
+        if (0 == *it) {
             ASSERT("unexpected null transition");
         }
 
-        if (_transitions[i]->check()) {
-            retTransitionsSet->insert(_transitions[i]);
+        if ((*it)->check()) {
+            retTransitionsSet->insert(*it);
         }
     }
 
     return retTransitionsSet->size();
 }
 
-HSTransition* HSMode::getAvailableNext(){
-    unsigned int i;
+HSTransition* HSMode::getBestTransition(){
     uint32_t mostHeavy = 0;
     //HSTransition* best = 0;
 
@@ -118,16 +110,17 @@ HSTransition* HSMode::getAvailableNext(){
         // only for hybrid automata
         // mostHeavy = getMaxTimeMicros();
     }
-    for (i = 0; i < _transCount; ++i) {
-        if (0 == _transitions[i]) {
+
+    for (set<HSTransition*>::iterator it = _transitions.begin(); it != _transitions.end(); ++it) {
+        if (0 == *it) {
             ASSERT("unexpected null transition");
         }
 
-        if (_transitions[i]->check()) {
-            if (mostHeavy > _transitions[i]->getNext()->getMaxTimeMicros()){
+        if ((*it)->check()) {
+            if (mostHeavy > (*it)->getNext()->getMaxTimeMicros()){
                 continue;
             }
-            return _transitions[i];
+            return (*it);
         }
     }
 
@@ -135,60 +128,58 @@ HSTransition* HSMode::getAvailableNext(){
 }
 
 void HSMode::removeTransition(HSTransition* transition){
-    unsigned int transIndex;
-    for (transIndex = 0; transIndex < _transCount; ++transIndex) {
-        if (_transitions[transIndex] == transition) {
-            removeTransition(transIndex);
-            return;
-        }
+    if (0 == _transitions.count(transition)){
+        DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_WARNING, "transition not found");
+    } else {
+        _transitions.erase(transition);
     }
-    DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_WARNING, "transition not found");
 }
 
 void HSMode::removeTransitions(HSMode* toMode){
-    unsigned int transIndex;
-    for (transIndex = 0; transIndex < _transCount; ++transIndex) {
-        if (_transitions[transIndex]->getNext() == toMode) {
-            removeTransition(transIndex);
-            transIndex--;
-            return;
+    set<HSTransition*> tempSet;
+
+    for (set<HSTransition*>::iterator it = _transitions.begin(); it != _transitions.end(); ++it) {
+        if ((*it)->getNext() == toMode) {
+            tempSet.insert(*it);
         }
+    }
+
+    for (set<HSTransition*>::iterator it = tempSet.begin(); it != tempSet.end(); ++it) {
+        removeTransition(*it);
     }
 }
 
 set<HSMode*>* HSMode::getAllNexts(){
     set<HSMode*>* theSet = new set<HSMode*>();
-    unsigned int i;
 
-    for (i=0 ; i < _transCount ; i++){
-        if (0 == _transitions[i]){
+    for (set<HSTransition*>::iterator it = _transitions.begin(); it != _transitions.end(); ++it) {
+        if (0 == *it){
             ASSERT("unexpected empty mode transition");
-        } else if (_transitions[i]->getNext() &&
-                0 == theSet->count(_transitions[i]->getNext())){
-            theSet->insert(_transitions[i]->getNext());
+        } else if ((*it)->getNext() && 0 == theSet->count((*it)->getNext())){
+            theSet->insert((*it)->getNext());
         }
     }
 
     return theSet;
 }
 
-HybridSched::Task** HSMode::getTasks(){
-    // TODO - it's open privacy issue
-    return _tasks;
+const set<HybridSched::Task*>* HSMode::getTasks(){
+    // TODO - it's makes privacy issue
+    return &_tasks;
 }
 
 uint16_t HSMode::getMaxTimeMicros(){
-	HybridSched::Task** t = _tasks;
-	uint16_t sum = 0;
+    if (!_maxTimeValid){
+        _modeMaxTimeMicros = 0;
+        for (set<HybridSched::Task*>::iterator it = _tasks.begin(); it != _tasks.end(); ++it) {
+            _modeMaxTimeMicros += (*it)->max_time_micros;
+        }
+        _maxTimeValid = true;
+    }
 
-	while (*t){
-		sum += (*t)->max_time_micros;
-		t++;
-	}
-
-	return sum;
+    return _modeMaxTimeMicros;
 }
-
+#if o
 void HSMode::removeOverflowTransitions(uint32_t max_slot_time_micros){
     unsigned int i;
     DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_BEDUG," ");
@@ -212,11 +203,11 @@ void HSMode::removeOverflowTransitions(uint32_t max_slot_time_micros){
     }
     DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_BEDUG," \n");
 }
-
+#endif
 const char* HSMode::getName(){
     return _name;
 }
-
+#if 0
 void HSMode::removeTransition(unsigned int transitionIndex){
     unsigned int i;
     DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_TRACE, "start");
@@ -239,4 +230,4 @@ void HSMode::removeTransition(unsigned int transitionIndex){
     _transCount--;
     DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_TRACE, "end");
 }
-
+#endif
