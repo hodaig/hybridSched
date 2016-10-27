@@ -7,6 +7,8 @@
 
 #include "Utils.h"
 
+using namespace std;
+
 int Utils::_identLevel = 0;
 
 // from APM
@@ -32,4 +34,22 @@ void Utils::printTimes(const char* str, unsigned int count){
     for (i=0; i<count ; i++){
         DEBBUG_PRINTF(str);
     }
+}
+
+
+vector<string> Utils::split(const char *str, char c = ' ')
+{
+    vector<string> result;
+
+    do
+    {
+        const char *begin = str;
+
+        while(*str != c && *str)
+            str++;
+
+        result.push_back(string(begin, str));
+    } while (0 != *str++);
+
+    return result;
 }

@@ -12,6 +12,8 @@
 #include <stdio.h>				// for printf();
 #include <stdint.h> 		// types
 #include <time.h>
+#include <vector>
+#include <string>
 
 #define MICROS() (Utils::micros64() & 0xFFFFFFFF)
 
@@ -26,7 +28,16 @@ public:
 
 	static void printTimes(const char* str, unsigned int count);
 
+	static std::vector<std::string> split(const char *str, char c);
+
 };
+
+
+
+
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(arr) (sizeof(arr)/sizeof(arr[0]))
+#endif
 
 /**
  * use this makro as printf() function to printing in debbug mode only
