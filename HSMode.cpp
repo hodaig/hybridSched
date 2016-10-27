@@ -11,7 +11,6 @@
 
 HSMode::HSMode() :
 		_name("noName"),
-		_dom(HSConditionTrue::getSingleton()),
 		_tasks(),
 		_transitions(),
 		_modeMaxTimeMicros(0),
@@ -20,7 +19,6 @@ HSMode::HSMode() :
 
 HSMode::HSMode(const char* name) :
 		_name(name),
-		_dom(HSConditionTrue::getSingleton()),
 		_tasks(),
 		_transitions(),
 		_modeMaxTimeMicros(0),
@@ -64,14 +62,6 @@ void HSMode::addTransition(HSMode* toMode, HSCondition* cond, const set<hsVariab
 	}
 }
 
-void HSMode::setDomain(HSCondition* dom){
-	_dom = dom;
-}
-
-HSCondition* HSMode::getDomain(){
-	return _dom;
-}
-
 const set<HSTransition*>* HSMode::getTransitions(){
 	// TODO - debug
 	if (_transitions.empty()){
@@ -105,11 +95,6 @@ unsigned int HSMode::getAvailableTransitions(set<HSTransition*>* retTransitionsS
 HSTransition* HSMode::getBestTransition(){
     uint32_t mostHeavy = 0;
     //HSTransition* best = 0;
-
-    if (_dom->check()) {
-        // only for hybrid automata
-        // mostHeavy = getMaxTimeMicros();
-    }
 
     for (set<HSTransition*>::iterator it = _transitions.begin(); it != _transitions.end(); ++it) {
         if (0 == *it) {

@@ -8,6 +8,9 @@
 #ifndef HYBRIDSCHED_H_
 #define HYBRIDSCHED_H_
 
+#define HS_TICS_SEPARATOR "<tick>"
+#define HS_SLOT_SIZE_MICROS 100
+
 #include "HSAutomata.h"
 
 #include <stdint.h> 		// types
@@ -16,11 +19,11 @@
 #define HS_RETVAL_OK 1
 #define HS_RETVAL_ERR -1
 
-#define HS_DOM_ALWAYS_TRUE  // meaning we not using the hybrid systems methodology (the domain of mode must always be true)
 // #define HS_CONF_AUTO_ADVANCE_VARIABLES
 
 #define HS_MAX_GENERAL_VARS  40
 #define HS_MAX_INITIAL_MODES 40
+
 
 //TODO #include "HSMode.h"
 class HSMode;

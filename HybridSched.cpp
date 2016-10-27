@@ -13,7 +13,7 @@
 #include "conditions/HSConditionSmallEq.h"
 #include "HSAutomata.h"
 
-#define HS_SLOT_SIZE_MICROS 100
+
 HybridSched::HybridSched()
 			: _generalVarsCount(0),
 			  _automata(0), _currentMode(0),
@@ -27,7 +27,7 @@ HybridSched::~HybridSched() {
 
 void HybridSched::tics() {
     if (_testQ){
-       _testQ->push_back("<tick>");
+       _testQ->push_back(HS_TICS_SEPARATOR);
     }
 
 #ifdef HS_CONF_AUTO_ADVANCE_VARIABLES

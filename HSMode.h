@@ -37,7 +37,7 @@ typedef struct {
 class HSMode {
 private:
 	const char* _name;                  // mode name (for debugging)
-	HSCondition* _dom;                  // mode domain
+	//HSCondition* _dom;                  // mode domain
 	set<HybridSched::Task*> _tasks;     // tasks array
 	set<HSTransition*> _transitions;	// transitions array
 

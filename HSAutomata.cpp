@@ -390,7 +390,7 @@ HSMode* HSAutomata::unionMode(HSMode* mode1, HSMode* mode2){
 	    }
 		newMode->addTask(*it);
 	}
-	newMode->setDomain(new HSConditionAND(mode1->getDomain(), mode2->getDomain()));
+	//newMode->setDomain(new HSConditionAND(mode1->getDomain(), mode2->getDomain()));
 	//DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_TRACE, "end");
 
     DEBUG_TRACE_END();

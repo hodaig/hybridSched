@@ -20,6 +20,7 @@ class HSMode;
 class HSTransition {
 private:
     HSCondition* _cond;
+    std::set<HybridSched::Task*> _tasks;
     HSMode* _toMode;
     std::set<hsVariable_t*> _reset;
     uint32_t _cost;
@@ -29,6 +30,9 @@ public:
     HSTransition(HSCondition* cond, HSMode* toMode, uint32_t cost);
     HSTransition(HSTransition first, HSTransition second, HSMode* toMode);
     virtual ~HSTransition();
+
+    void addTask(HybridSched::Task* task);
+    const std::set<HybridSched::Task*> getTasks();
 
     HSCondition* getCond();
     const std::set<hsVariable_t*>* getReset();

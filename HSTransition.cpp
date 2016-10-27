@@ -10,11 +10,11 @@
 #include "HSMode.h"
 
 HSTransition::HSTransition(HSCondition* cond, HSMode* toMode, const set<hsVariable_t*> *reset, uint32_t cost) :
-            _cond(cond), _toMode(toMode), _reset(*reset), _cost(cost){
+            _cond(cond), _tasks(), _toMode(toMode), _reset(*reset), _cost(cost){
 }
 
 HSTransition::HSTransition(HSCondition* cond, HSMode* toMode, uint32_t cost) :
-            _cond(cond), _toMode(toMode), _reset(), _cost(cost){
+            _cond(cond), _tasks(), _toMode(toMode), _reset(), _cost(cost){
     _reset.clear();
 }
 
@@ -29,6 +29,19 @@ HSTransition::HSTransition(HSTransition first, HSTransition second, HSMode* toMo
 HSTransition::~HSTransition() {
     // TODO Auto-generated destructor stub
 }
+
+void HSTransition::addTask(HybridSched::Task* task){
+    if (!task) {
+        ASSERT("null task");
+    }
+
+    _tasks.insert(task);
+}
+
+const std::set<HybridSched::Task*> HSTransition::getTasks(){
+    return _tasks;
+}
+
 
 HSCondition* HSTransition::getCond(){
     return _cond;
@@ -47,11 +60,7 @@ HSMode* HSTransition::getNext(){
 }
 
 bool HSTransition::check(){
-#ifdef HS_DOM_ALWAYS_TRUE
-    return (_cond->check() && _toMode->getDomain()->check());
-#else
     return _cond->check();
-#endif
 }
 
 HSMode* HSTransition::takeTransition(){
