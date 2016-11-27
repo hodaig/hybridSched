@@ -38,7 +38,7 @@ class HSMode {
 private:
 	const char* _name;                  // mode name (for debugging)
 	//HSCondition* _dom;                  // mode domain
-	set<HybridSched::Task*> _tasks;     // tasks array
+	//set<HybridSched::Task*> _tasks;     // tasks array
 	set<HSTransition*> _transitions;	// transitions array
 
 	uint16_t _modeMaxTimeMicros;
@@ -54,6 +54,7 @@ public:
 
 	void addTransition(HSMode* toMode, HSCondition* cond, uint32_t cost);
 	void addTransition(HSMode* toMode, HSCondition* cond, const set<hsVariable_t*>* reset, uint32_t cost);
+	void addTransition(HSTransition* trans);
 	const set<HSTransition*>* getTransitions();
 	unsigned int getAvailableTransitions(set<HSTransition*>* retTransitionsSet);
 	HSTransition* getBestTransition();
@@ -69,9 +70,6 @@ public:
 	 * -- the user should delete this set
 	 */
 	set<HSMode*>* getAllNexts();
-
-	void setDomain(HSCondition* dom);
-	HSCondition* getDomain();
 
 	uint16_t getMaxTimeMicros();
 

@@ -10,12 +10,16 @@
 
 #include <utility>  //pair
 #include <map>
+#include "../pugixml-1.7/src/pugixml.hpp"
+#include <iostream>  // std::cout
+#include <string.h>  // strtok()
 
 #include "../HSMode.h"
 #include "../HybridSched.h"
 #include "../conditions/HSCondition.h"
 #include "../conditions/HSConditionTrue.h"
 #include "../conditions/HSConditionFunc.h"
+#include "../HSGoalAutomata.h"
 #include "TestAutoUtil.h"
 
 #define HS_MAKE_TASK(name, type, fun, time) \
@@ -55,17 +59,20 @@ int cond_true() {return 0;};
 //HSCondition_true cond_true;
 
 HybridSched* createSched1(){
-	mode1.addTask(&print1);
-	mode1.addTask(&incXTask);
 
-	mode2.addTask(&print1);
-	mode2.addTask(&print2);
+    HSTransition* trans1 = new HSTransition(&mode1, HSConditionTrue::getSingleton(), &mode2, 0);
+    trans1->addTask(&print1);
+    trans1->addTask(&print2);
+	mode1.addTransition(trans1);
 
-	mode3.addTask(&terminationTask);
+    HSTransition* trans2 = new HSTransition(&mode2, HSConditionTrue::getSingleton(), &mode1, 0);
+    trans2->addTask(&print1);
+    trans2->addTask(&incXTask);
+	mode2.addTransition(trans2);
 
-	mode1.addTransition(&mode2, HSConditionTrue::getSingleton(), 0);
-	mode2.addTransition(&mode1, HSConditionTrue::getSingleton(), 0);
-	mode2.addTransition(&mode3, new HSConditionFunc(&testX), 0);
+    HSTransition* trans3 = new HSTransition(&mode2, new HSConditionFunc(&testX), &mode3, 0);
+    trans3->addTask(&terminationTask);
+	mode3.addTransition(trans3);
 
 	HybridSched*  sched = new HybridSched();
 	sched->addTaskSpec(&mode1);
@@ -99,11 +106,23 @@ int test1(){
 
 int main(int argc, char **argv) {
 
+    HSGoalAutomata xml1;
+    xml1.addInitialState(new HSMode("boo"));
+    xml1.addInitialState(new HSMode("boo2"));
+
+    HSGoalAutomata xml2;
+    xml2.addInitialState(new HSMode("goo"));
+    xml2.addInitialState(new HSMode("goo2"));
+
+    xml1.product(&xml2);
+    //HSxmlAutomata xml3("./out.gff");
+    xml1.saveXmlToFile("test.gff");
 
 	TestAutoUtil::test();
 	printf("done./n");
-	return 0;
 
+	return 0;
+#if 0
 	HSMode* mode1 = new HSMode();
 	HSMode* mode2 = new HSMode();
 
@@ -128,7 +147,7 @@ int main(int argc, char **argv) {
 
 
 	test1();
-
+#endif
 	return 0;
 }
 

@@ -11,8 +11,6 @@
 #define HS_TICS_SEPARATOR "<tick>"
 #define HS_SLOT_SIZE_MICROS 100
 
-#include "HSAutomata.h"
-
 #include <stdint.h> 		// types
 #include <queue>
 
@@ -25,8 +23,10 @@
 #define HS_MAX_INITIAL_MODES 40
 
 
-//TODO #include "HSMode.h"
 class HSMode;
+class HSAutomata;
+class HSTransition;
+
 
 typedef int (*HSTask_fn_t)(void);
 enum HSTask_type_t {
@@ -47,6 +47,9 @@ private:
 
 	HSAutomata* _automata;
 	HSMode* _currentMode;
+
+	HSAutomata* _timeGuardedAutomata;
+
 	std::deque<const char*>* _testQ;
 
 public:
@@ -76,6 +79,18 @@ public:
 
 private:
 	int exacuteModeTasks(HSMode* mode);
+	int exacuteTransitionTasks(HSTransition* trans);
+
+	/*
+	 * add task of the automata to the existing guarded automata.
+	 * the guarded automata prevent from time overflow
+	 */
+	void addTasksToGuardedAutomata(HSAutomata* automata);
+
+	/*
+	 * use the guarded automata to remove the illegal transitions
+	 */
+	void removeIlegalTramsitions();
 };
 
 #endif /* HYBRIDSCHED_H_ */

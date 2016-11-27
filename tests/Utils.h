@@ -39,6 +39,9 @@ public:
 #define ARRAY_SIZE(arr) (sizeof(arr)/sizeof(arr[0]))
 #endif
 
+#define HS_UTILS_FOREACH(type, name, collection) \
+            for (type##::iterator name = collection.begin(); name!=collection.end(); ++name)
+
 /**
  * use this makro as printf() function to printing in debbug mode only
  */
@@ -49,7 +52,7 @@ public:
 #define DEBUG_VERB_LOG        5
 #define DEBUG_VERB_BEDUG      6
 
-#define DEBBUGING_MODE 4
+#define DEBBUGING_MODE 3
 
 
 #ifdef DEBBUGING_MODE

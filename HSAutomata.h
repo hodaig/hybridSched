@@ -9,17 +9,20 @@
 #define HSAUTOMATA_H_
 
 //#include "HSMode.h"
+#include "HybridSched.h"
+#include "tests/Utils.h"
 
 #include <set>
 
-#include "tests/Utils.h"
-
 class HSMode;
+class HSTransition;
 
 class HSAutomata {
 private:
     std::set<HSMode*> _allModes;
     std::set<HSMode*> _initialsModes;
+    std::set<HSTransition*> _transitions;
+    std::set<HybridSched::Task*> _allTasks;      // set of all the task (propositions that takes more than 0 time)
 
 public:
     HSMode*              _currentMode;
@@ -42,6 +45,7 @@ public:
      * return - the mode itself if exist, 0 if not
      */
     HSMode* removeInitialMode(HSMode* mode);
+
     /*
      * return pointer to the initial modes set
      * -- do not edit
@@ -49,16 +53,46 @@ public:
     const std::set<HSMode*>* getInitialsModes();
 
     /*
+     * return pointer to the allModes modes set
+     * -- do not edit
+     */
+    const std::set<HSMode*>* getAllModes();
+
+    /*
+     * add new transition to the automata
+     * - the 'from' and 'to' modes must be already in the automata
+     * - also add the transition to 'from' mode
+     */
+    void addTransition(HSTransition* trans);
+
+    /*
+     * return pointer to the transition set
+     * -- do not edit
+     */
+    const std::set<HSTransition*>* getTransitions();
+
+    /*
+     * return set of all the task appear in this automata
+     */
+    const std::set<HybridSched::Task*>* getAllTasks();
+
+    /*
      * product this automata with other automata.
      * return - a new HSAutomata for the product
      */
     HSAutomata* product(HSAutomata* other, uint32_t slot_size_micros);
+
+    /*
+     * simplify this automata.
+     * return - a new HSAutomata for the simplification
+     */
+    HSAutomata* simplify();
+
     /*
      * cut all terminated modes
      * return - number of initial modes left after cutting
      */
     int cutDeadEnds();
-
 
 private:
 

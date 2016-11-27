@@ -55,25 +55,25 @@ void makeAutos1(){
 	// auto1 :
 	// ({A} #t)
 	auto1 = new HSMode("mode1");
-	auto1->addTask(&t1);
 	//auto1->setDomain(HSConditionTrue::getSingleton());
-	auto1->addTransition(auto1, HSConditionTrue::getSingleton(), 0);
+	HSTransition* trans = new HSTransition(auto1, HSConditionTrue::getSingleton(), auto1, 0);
+	auto1->addTransition(trans->addTask(&t1));
 	DEBBUG_PRINTF_info("");
 	// auto2 :
 	// ({B} #T)
 	auto2 = new HSMode("mode2");
-	auto2->addTask(&t2);
 	//auto2->setDomain(HSConditionTrue::getSingleton());
-	auto2->addTransition(auto2, HSConditionTrue::getSingleton(), 0);
+	trans = new HSTransition(auto2, HSConditionTrue::getSingleton(), auto2, 0);
+	auto2->addTransition(trans->addTask(&t2));
 	DEBBUG_PRINTF_info("");
 
 	// auto1x2 :
 	// ({A,B} #T)
 	auto1x2 = new HSMode("mode1+2");
-	auto1x2->addTask(&t1);
-	auto1x2->addTask(&t2);
 	//auto1x2->setDomain(HSConditionTrue::getSingleton());
-	auto1x2->addTransition(auto1x2, HSConditionTrue::getSingleton(), 0);
+	trans = new HSTransition(auto1x2, HSConditionTrue::getSingleton(), auto1x2, 0);
+	auto1x2->addTransition(trans->addTask(&t1));
+	auto1x2->addTransition(trans->addTask(&t2));
 
 	DEBBUG_PRINTF_info("");
 
@@ -193,7 +193,7 @@ struct periodicTestSpecs_t periodTests[][20] = {
         },
         {
                 {1,   2,   60,   "t5"},
-                {4,   4,   60,   "t6"}
+                {4,   6,   60,   "t6"}
         },
         {
                 {1,   2,   60,   "t7"},
@@ -216,7 +216,7 @@ bool testOverflowPeriodic(){
 
     DEBUG_TRACE_START();
 
-    for (i=0; i<ARRAY_SIZE(periodTests); i++){
+    for (i=2; i<ARRAY_SIZE(periodTests); i++){
         // prepare the scheduler
         hs = new HybridSched();
         outQ_before.clear();
@@ -327,7 +327,7 @@ bool testOverflowPeriodic(){
 bool TestAutoUtil::test(){
 	bool ans;
 
-	ans = testBasic();
+	//ans = testBasic();
 	if (ans){
 		printf("testBasic pass\n");
 	} else {

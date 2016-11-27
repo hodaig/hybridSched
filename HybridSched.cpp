@@ -17,8 +17,13 @@
 HybridSched::HybridSched()
 			: _generalVarsCount(0),
 			  _automata(0), _currentMode(0),
+			  _timeGuardedAutomata(new HSAutomata()),
 			  _testQ(0){// : _generalVarsCount(0), _initialMode(0), _currentMode(0){
-	// TODO Auto-generated constructor stub
+
+    HSMode* mode = new HSMode();
+    _timeGuardedAutomata->addInitialMode(mode);
+    HSTransition* trans = new HSTransition(mode, HSConditionTrue::getSingleton(), mode, 0);
+    _timeGuardedAutomata->addTransition(trans);
 }
 
 HybridSched::~HybridSched() {
@@ -56,10 +61,9 @@ int HybridSched::run(uint32_t time_available) {
 	bestTrans = _currentMode->getBestTransition();
 
 	if (bestTrans){
-	    if (0 == bestTrans->getNext()){
+	    if (0 == bestTrans->getTo()){
 	        ASSERT("empty transition");
 	    }
-	    _currentMode = bestTrans->takeTransition();
 
 	//} else if (!_currentMode->getDomain()->check()) {
 	} else {
@@ -67,7 +71,8 @@ int HybridSched::run(uint32_t time_available) {
 	}
 
 	// run the actual tasks
-	res = exacuteModeTasks(_currentMode);
+	res = exacuteTransitionTasks(bestTrans);
+	_currentMode = bestTrans->takeTransition();
 
 	//TODO - check time slot
 	if (MICROS() - run_started_usec < 0){
@@ -105,6 +110,8 @@ int HybridSched::addTaskSpec(HSAutomata* specAuto){
 		ASSERT("empty spec auto mode");
 	}
 
+    addTasksToGuardedAutomata(specAuto);
+
     if (0 == _automata){
 	    _automata = specAuto;
 	} else {
@@ -114,6 +121,8 @@ int HybridSched::addTaskSpec(HSAutomata* specAuto){
 	    delete specAuto; specAuto=0;
 	    delete oldAuto; oldAuto=0;
 	}
+
+    removeIlegalTramsitions();
 
     DEBUG_TRACE_RETURN(HS_RETVAL_OK);
 }
@@ -145,21 +154,33 @@ int HybridSched::addPeriodTask(Task* task, uint16_t period_slots_min, uint16_t p
     //initModesArr[period_slots_max] = 0;
 
     allModesArr[0] = new HSMode(task->name);
-    allModesArr[0]->addTask(task);
+    //allModesArr[0]->addTask(task);
     newAuto->addInitialMode(allModesArr[0]);
 
     for (i = 1; i < period_slots_min; i++) {
         allModesArr[i] = new HSMode("idle");
-        allModesArr[i-1]->addTransition(allModesArr[i], HSConditionTrue::getSingleton(),0);
         newAuto->addInitialMode(allModesArr[i]);
+        HSTransition* t = new HSTransition(allModesArr[i-1], HSConditionTrue::getSingleton(), allModesArr[i], 0);
+        t->addNoTask(task);
+        newAuto->addTransition(t);
     }
-
-    allModesArr[i-1]->addTransition(allModesArr[0], HSConditionTrue::getSingleton(),0);
+    HSTransition* t = new HSTransition(allModesArr[i-1], HSConditionTrue::getSingleton(), allModesArr[0], 0);
+    t->addTask(task);
+    newAuto->addTransition(t);
 
     for (i = period_slots_min; i < period_slots_max; i++) {
         allModesArr[i] = new HSMode("idle");
-        allModesArr[i-1]->addTransition(allModesArr[i], HSConditionTrue::getSingleton(),(i-period_slots_min));
-        allModesArr[i]->addTransition(allModesArr[0], HSConditionTrue::getSingleton(),0);
+        newAuto->addMode(allModesArr[i]);
+
+        //allModesArr[i-1]->addTransition(allModesArr[i], HSConditionTrue::getSingleton(),(i-period_slots_min));
+        HSTransition* tNo = new HSTransition(allModesArr[i-1], HSConditionTrue::getSingleton(), allModesArr[i], (i-period_slots_min));
+        tNo->addNoTask(task);
+        newAuto->addTransition(tNo);
+
+        HSTransition* tYes = new HSTransition(allModesArr[i], HSConditionTrue::getSingleton(), allModesArr[0], 0);
+        tYes->addTask(task);
+        newAuto->addTransition(tYes);
+        //allModesArr[i]->addTransition(t);
     }
 
     if (period_slots_max > period_slots_min){
@@ -258,7 +279,7 @@ int HybridSched::reset(uint32_t slot_time_micros){
     DEBUG_TRACE_END();
 	return HS_RETVAL_OK;
 }
-
+#if 0
 int HybridSched::exacuteModeTasks(HSMode* mode){
 	const set<Task*>* tasks;
 	int res = HS_RETVAL_OK;
@@ -303,11 +324,96 @@ int HybridSched::exacuteModeTasks(HSMode* mode){
 
 	DEBUG_TRACE_RETURN(res);
 }
+#endif
+int HybridSched::exacuteTransitionTasks(HSTransition* trans){
+    const set<Task*>* tasks;
+    int res = HS_RETVAL_OK;
+
+    DEBUG_TRACE_START();
+
+    if (!trans){
+        ASSERT("null trans");
+        return -1;
+    }
+
+    // execute all tasks
+    // TODO - use also HS_MAX_TASKS_IN_MODE
+    tasks = trans->getTasks();
+    for (set<Task*>::iterator it = tasks->begin(); it != tasks->end(); ++it) {
+
+        switch ((*it)->type) {
+        case HS_TASK_TYPE_PRINT:
+            printf("running dummy task: %s\n", (*it)->name);
+            break;
+        case HS_TASK_TYPE_REGULAR:
+            (*it)->function();
+
+            break;
+        case HS_TASK_TYPE_INC:
+            if (!(*it)->value){
+                ASSERT("null value");
+            }
+
+            (*(*it)->value)++;
+
+            break;
+        case HS_TASK_TYPE_TEST:
+            if (_testQ){
+                _testQ->push_back((*it)->name);
+            }
+            break;
+        default:
+            break;
+        }
+    }
+
+    DEBUG_TRACE_RETURN(res);
+}
 
 void HybridSched::setTestQ(std::deque<const char*>* testQ){
 	_testQ = testQ;
 }
 
+void HybridSched::addTasksToGuardedAutomata(HSAutomata* automata){
+    const set<Task*>* tasks = automata->getAllTasks();
+    HSMode* theMode = *(_timeGuardedAutomata->getInitialsModes()->begin());
 
+    if(!theMode){
+        ASSERT("null mode");
+    }
 
+    const set<HSTransition*>* trans = theMode->getTransitions();
+
+    for (set<HSTransition*>::iterator transIt = trans->begin(); transIt != trans->end(); ++transIt) {
+        for (set<Task*>::iterator taskIt = tasks->begin(); taskIt != tasks->end(); ++taskIt) {
+            if ((*transIt)->containsTask(*taskIt)){
+                continue;
+            }
+
+            if ( ((*transIt)->getMaxTimeMicros() + (*taskIt)->max_time_micros) < HS_SLOT_SIZE_MICROS){
+                HSTransition* newTrans = new HSTransition(*transIt);
+                newTrans->addTask(*taskIt);
+                _timeGuardedAutomata->addTransition(newTrans);
+            }
+
+            (*transIt)->addNoTask(*taskIt);
+        }
+    }
+
+}
+
+void HybridSched::removeIlegalTramsitions(){
+    HSAutomata* oldAuto = 0;
+
+    // remove illegal transitions
+    oldAuto = _automata;
+    _automata = _automata->product(_timeGuardedAutomata, HS_SLOT_SIZE_MICROS);
+    delete oldAuto; oldAuto=0;
+
+    // remove unreachable/blocking states
+    oldAuto = _automata;
+    _automata = _automata->simplify();
+    delete oldAuto; oldAuto=0;
+
+}
 

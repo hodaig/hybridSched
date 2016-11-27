@@ -11,7 +11,7 @@
 
 HSMode::HSMode() :
 		_name("noName"),
-		_tasks(),
+		//_tasks(),
 		_transitions(),
 		_modeMaxTimeMicros(0),
 		_maxTimeValid(false){
@@ -19,7 +19,7 @@ HSMode::HSMode() :
 
 HSMode::HSMode(const char* name) :
 		_name(name),
-		_tasks(),
+		//_tasks(),
 		_transitions(),
 		_modeMaxTimeMicros(0),
 		_maxTimeValid(false) {
@@ -27,7 +27,7 @@ HSMode::HSMode(const char* name) :
 
 HSMode::~HSMode() {}
 
-
+#if 0
 void HSMode::addTask(HybridSched::Task* task){
     DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_LOG, "add task %s to mode %s", task->name, getName());
 
@@ -43,7 +43,7 @@ void HSMode::addTask(HybridSched::Task* task){
 	_tasks.insert(task);
 	_maxTimeValid = false;
 }
-
+#endif
 void HSMode::addTransition(HSMode* toMode, HSCondition* cond, uint32_t cost){
     addTransition(toMode, cond, 0, cost);
 }
@@ -56,10 +56,21 @@ void HSMode::addTransition(HSMode* toMode, HSCondition* cond, const set<hsVariab
 	}
 
 	if (0 == reset){
-	_transitions.insert(new HSTransition(cond, toMode, cost));
+	    addTransition(new HSTransition(this, cond, toMode, cost));
 	} else {
-	_transitions.insert(new HSTransition(cond, toMode, reset, cost));
+	    addTransition(new HSTransition(this, cond, toMode, reset, cost));
 	}
+}
+
+void HSMode::addTransition(HSTransition* trans) {
+    if (!trans){
+        ASSERT("!trans");
+    }
+    if (trans->getFrom() != this){
+        ASSERT("trans->getFrom() != this");
+    }
+
+    _transitions.insert(trans);
 }
 
 const set<HSTransition*>* HSMode::getTransitions(){
@@ -102,7 +113,7 @@ HSTransition* HSMode::getBestTransition(){
         }
 
         if ((*it)->check()) {
-            if (mostHeavy > (*it)->getNext()->getMaxTimeMicros()){
+            if (mostHeavy > (*it)->getMaxTimeMicros()){
                 continue;
             }
             return (*it);
@@ -124,7 +135,7 @@ void HSMode::removeTransitions(HSMode* toMode){
     set<HSTransition*> tempSet;
 
     for (set<HSTransition*>::iterator it = _transitions.begin(); it != _transitions.end(); ++it) {
-        if ((*it)->getNext() == toMode) {
+        if ((*it)->getTo() == toMode) {
             tempSet.insert(*it);
         }
     }
@@ -140,19 +151,18 @@ set<HSMode*>* HSMode::getAllNexts(){
     for (set<HSTransition*>::iterator it = _transitions.begin(); it != _transitions.end(); ++it) {
         if (0 == *it){
             ASSERT("unexpected empty mode transition");
-        } else if ((*it)->getNext() && 0 == theSet->count((*it)->getNext())){
-            theSet->insert((*it)->getNext());
+        } else if ((*it)->getTo() && 0 == theSet->count((*it)->getTo())){
+            theSet->insert((*it)->getTo());
         }
     }
 
     return theSet;
 }
-
+#if 0
 const set<HybridSched::Task*>* HSMode::getTasks(){
     // TODO - it's makes privacy issue
     return &_tasks;
 }
-
 uint16_t HSMode::getMaxTimeMicros(){
     if (!_maxTimeValid){
         _modeMaxTimeMicros = 0;
@@ -164,7 +174,8 @@ uint16_t HSMode::getMaxTimeMicros(){
 
     return _modeMaxTimeMicros;
 }
-#if o
+#endif
+#if 0
 void HSMode::removeOverflowTransitions(uint32_t max_slot_time_micros){
     unsigned int i;
     DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_BEDUG," ");
@@ -174,7 +185,7 @@ void HSMode::removeOverflowTransitions(uint32_t max_slot_time_micros){
             ASSERT("unexpected empty mode transition");
         } else {
             DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_BEDUG," ");
-            if(_transitions[i]->getNext()->getMaxTimeMicros() >= max_slot_time_micros){
+            if(_transitions[i]->getTo()->getMaxTimeMicros() >= max_slot_time_micros){
                 // this transition must be removed
                 // TODO - memory leak potential here
                 DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_BEDUG," ");
@@ -196,7 +207,7 @@ const char* HSMode::getName(){
 void HSMode::removeTransition(unsigned int transitionIndex){
     unsigned int i;
     DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_TRACE, "start");
-    DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_LOG, "remove transition from %s to %s", getName(), _transitions[transitionIndex]->getNext()->getName());
+    DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_LOG, "remove transition from %s to %s", getName(), _transitions[transitionIndex]->getTo()->getName());
 
     if (transitionIndex >= _transCount || 0 > transitionIndex){
         ASSERT("Illegal transition index");
