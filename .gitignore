@@ -30,8 +30,13 @@
 *.app
 
 
+# Goal
+*.gff
+pugixml*
+
 .cproject
 .project
 Debug
+
 
 bin
