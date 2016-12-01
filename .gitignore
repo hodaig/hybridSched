@@ -32,7 +32,7 @@
 
 # Goal
 *.gff
-pugixml*
+#pugixml*
 
 .cproject
 .project
