@@ -44,7 +44,7 @@
 
 #define HS_GOAL_WORKING_DIRECTORY "." // where goal files will be saved
 //#define HS_GOAL_EXEC              "/home/hodai/bgu/teza/teza/goal/GOAL-20151018/gc"
-#define HS_GOAL_EXEC              "./goal-cl"
+#define HS_GOAL_EXEC              "./GOAL/gc"
 
 using namespace pugi;
 HSGoalAutomata::HSGoalAutomata():
