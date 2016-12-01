@@ -15,7 +15,13 @@
 #include <vector>
 #include <string>
 
+#ifdef HS_ALONE
 #define MICROS() (Utils::micros64() & 0xFFFFFFFF)
+#else
+#define MICROS() AP_HAL::micros()
+#define MICROS64() AP_HAL::micros64()
+
+#endif
 
 class Utils
 {
@@ -24,7 +30,7 @@ public:
 	// from APM
 	static uint64_t micros64();
 
-	static unsigned int getNullTerminatedArraySize(void** arr);
+	//static unsigned int getNullTerminatedArraySize(void** arr);
 
 	static void printTimes(const char* str, unsigned int count);
 
@@ -43,7 +49,7 @@ public:
             for (type##::iterator name = collection.begin(); name!=collection.end(); ++name)
 
 /**
- * use this makro as printf() function to printing in debbug mode only
+ * use this macro as printf() function to printing in debbug mode only
  */
 #define DEBUG_VERB_FATAL      1
 #define DEBUG_VERB_ERROR      2

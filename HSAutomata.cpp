@@ -270,6 +270,8 @@ HSAutomata* HSAutomata::product(HSAutomata* other, uint32_t slot_size_micros){
     DEBUG_TRACE_RETURN(prodAut);
 }
 #endif
+
+#if 0 // TODO
 int HSAutomata::cutDeadEnds(){
     queue<HSMode*> deadEnds;
     HSMode* tempMode;
@@ -303,6 +305,7 @@ int HSAutomata::cutDeadEnds(){
 
     return 0;
 }
+#endif
 
 #if 0 // TODO
 HSMode** HSAutomata::product(HSMode** auto1, unsigned int initialCount1,

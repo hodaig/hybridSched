@@ -302,13 +302,18 @@ void HSGoalAutomata::product(HSGoalAutomata* other){
 void HSGoalAutomata::simplify(){
     saveXmlToFile(HS_GOAL_WORKING_DIRECTORY "/beforSimplify.gff");
 
+    system(HS_GOAL_EXEC " reduce "\
+            "-o " HS_GOAL_WORKING_DIRECTORY "/afterReduce.gff "\
+            HS_GOAL_WORKING_DIRECTORY "/beforSimplify.gff ");
+
     system(HS_GOAL_EXEC " simplify "\
             "-o " HS_GOAL_WORKING_DIRECTORY "/afterSimplify.gff "\
-            HS_GOAL_WORKING_DIRECTORY "/beforSimplify.gff ");
+            HS_GOAL_WORKING_DIRECTORY "/afterReduce.gff ");
 
     readFromFile(HS_GOAL_WORKING_DIRECTORY "/afterSimplify.gff");
 /*
     system("rm " HS_GOAL_WORKING_DIRECTORY "/afterSimplify.gff "\
+            HS_GOAL_WORKING_DIRECTORY "/afterReduce.gff "\
             HS_GOAL_WORKING_DIRECTORY "/beforSimplify.gff ");
 */
 }

@@ -8,9 +8,9 @@
 #include "HybridSched.h"
 #include "HSMode.h"
 #include "tests/Utils.h"
-#include "conditions/HSConditionFalse.h"
+//#include "conditions/HSConditionFalse.h"
 #include "conditions/HSConditionTrue.h"
-#include "conditions/HSConditionSmallEq.h"
+//#include "conditions/HSConditionSmallEq.h"
 #include "HSAutomata.h"
 
 
@@ -18,13 +18,19 @@ HybridSched::HybridSched()
 			: _generalVarsCount(0),
 			  _automata(0), _currentMode(0),
 			  _timeGuardedAutomata(new HSAutomata()),
-			  _testQ(0){// : _generalVarsCount(0), _initialMode(0), _currentMode(0){
+			  _testQ(0),
+			  _slot_size_micros(HS_SLOT_SIZE_MICROS){// : _generalVarsCount(0), _initialMode(0), _currentMode(0){
 
     HSMode* mode = new HSMode();
     _timeGuardedAutomata->addInitialMode(mode);
     HSTransition* trans = new HSTransition(mode, HSConditionTrue::getSingleton(), mode, 0);
     _timeGuardedAutomata->addTransition(trans);
 }
+
+HybridSched::HybridSched(AP_Scheduler* ap_sched): HybridSched(){
+
+}
+
 
 HybridSched::~HybridSched() {
 	// TODO Auto-generated destructor stub
@@ -52,7 +58,7 @@ int HybridSched::run(uint32_t time_available) {
 	uint32_t run_started_usec;
 	DEBUG_TRACE_START();
 
-	run_started_usec = MICROS(); //micros64() & 0xFFFFFFFF
+	run_started_usec = MICROS();
 
 	if(!_currentMode){
 	    ASSERT("scheduler not initialized");
@@ -75,7 +81,7 @@ int HybridSched::run(uint32_t time_available) {
 	_currentMode = bestTrans->takeTransition();
 
 	//TODO - check time slot
-	if (MICROS() - run_started_usec < 0){
+	if ((MICROS() - run_started_usec) > HS_SLOT_SIZE_MICROS){
 		DEBBUG_PRINTF_info("time slot overflow");
 	}
 
@@ -93,7 +99,12 @@ int HybridSched::addTaskSpec(HSMode* initialMode){
     newAuto = new HSAutomata();
     newAuto->addInitialMode(initialMode);
 
+#if 0
     newAuto->cutDeadEnds();
+#else
+    newAuto->simplify();
+#endif
+
     if (newAuto->getInitialsModes()->empty()){
         DEBBUG_PRINTF_INFO_LEVEL(DEBUG_VERB_WARNING, "new spec with no initial mode");
     }
@@ -256,7 +267,11 @@ int HybridSched::addPeriodTask(Task* task, uint16_t period_slots_min, uint16_t p
 #endif
 }
 
+#if 0
 int HybridSched::reset(uint32_t slot_time_micros){
+#else
+int HybridSched::reset(){
+#endif // if 0
     DEBUG_TRACE_START();
 
     if(0 == _automata || _automata->getInitialsModes()->empty()){
@@ -277,8 +292,45 @@ int HybridSched::reset(uint32_t slot_time_micros){
     _currentMode = (*_automata->getInitialsModes()->begin());
 
     DEBUG_TRACE_END();
-	return HS_RETVAL_OK;
+    return HS_RETVAL_OK;
 }
+
+int HybridSched::reset(AP_Scheduler* ap_sched){
+    int i;
+    uint16_t periodMin, periodMax;
+
+    _base_ap_sched = ap_sched;
+
+    _slot_size_micros = (1000*1000/(ap_sched->get_loop_rate_hz()));
+    _slot_size_micros *= HS_SLOT_SIZE_RATIO;
+
+    // copy all the period tasks
+    for(i=0; i < ap_sched->_num_tasks; i++){
+        if (ap_sched->_tasks[i].function &&
+                ap_sched->_tasks[i].rate_hz > 0 &&
+                ap_sched->_tasks[i].max_time_micros > 0 &&
+                ap_sched->_tasks[i].max_time_micros < _slot_size_micros){
+
+            Task* newTask = new Task();
+            newTask->type = HS_TASK_TYPE_REGULAR;
+            newTask->function = ap_sched->_tasks[i].function;
+            newTask->name = ap_sched->_tasks[i].name;
+            newTask->max_time_micros = ap_sched->_tasks[i].max_time_micros;
+            newTask->value = 0;
+
+            periodMin = ap_sched->get_loop_rate_hz() / ap_sched->_tasks[i].rate_hz;
+            periodMax = periodMin;
+            if (periodMin > 4 || ap_sched->_tasks[i].max_time_micros > _slot_size_micros / 2){
+                periodMax = periodMin + 2;
+            }
+
+            addPeriodTask(newTask, periodMin, periodMax);
+        }
+    }
+
+    return reset();
+}
+
 #if 0
 int HybridSched::exacuteModeTasks(HSMode* mode){
 	const set<Task*>* tasks;

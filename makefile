@@ -5,6 +5,7 @@ all: bin/test
 
 OBJS += \
 ./bin/HSAutomata.o \
+./bin/HSGoalAutomata.o \
 ./bin/HSMode.o \
 ./bin/HSTransition.o \
 ./bin/HybridSched.o 
@@ -30,6 +31,9 @@ OBJS += \
 ./bin/conditions/HSConditionNot.o \
 ./bin/conditions/HSConditionSmallEq.o \
 ./bin/conditions/HSConditionTrue.o 
+
+OBJS += \
+./pugixml-1.7/src/pugixml.o 
 
 # Tool invocations
 bin/test: $(OBJS)

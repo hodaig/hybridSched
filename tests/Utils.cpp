@@ -20,6 +20,7 @@ uint64_t Utils::micros64()
     return 1.0e6*(ts.tv_sec + (ts.tv_nsec*1.0e-9));
 }
 
+#if 0
 unsigned int Utils::getNullTerminatedArraySize(void** arr){
     unsigned int count = 0;
     while (arr[0]){
@@ -28,15 +29,18 @@ unsigned int Utils::getNullTerminatedArraySize(void** arr){
     }
     return count;
 }
+#endif
 
+#if 0
 void Utils::printTimes(const char* str, unsigned int count){
     unsigned int i;
     for (i=0; i<count ; i++){
         DEBBUG_PRINTF(str);
     }
 }
+#endif
 
-
+#if 0
 vector<string> Utils::split(const char *str, char c = ' ')
 {
     vector<string> result;
@@ -53,3 +57,4 @@ vector<string> Utils::split(const char *str, char c = ' ')
 
     return result;
 }
+#endif

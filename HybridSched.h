@@ -10,9 +10,12 @@
 
 #define HS_TICS_SEPARATOR "<tick>"
 #define HS_SLOT_SIZE_MICROS 100
+#define HS_SLOT_SIZE_RATIO  0.8
 
 #include <stdint.h> 		// types
 #include <queue>
+
+#include <AP_Scheduler/AP_Scheduler.h>
 
 #define HS_RETVAL_OK 1
 #define HS_RETVAL_ERR -1
@@ -27,8 +30,12 @@ class HSMode;
 class HSAutomata;
 class HSTransition;
 
-
+#ifdef HS_ALONE
 typedef int (*HSTask_fn_t)(void);
+#else
+typedef AP_Scheduler::task_fn_t HSTask_fn_t;
+#endif
+
 enum HSTask_type_t {
 	HS_TASK_TYPE_NON = 0,				// undefined
 	HS_TASK_TYPE_REGULAR = 1,           // normal function
@@ -52,6 +59,10 @@ private:
 
 	std::deque<const char*>* _testQ;
 
+	uint32_t _slot_size_micros;
+
+	AP_Scheduler* _base_ap_sched;
+
 public:
 
     struct Task {
@@ -64,15 +75,25 @@ public:
     };
 
 	HybridSched();
+
+	/*
+	 * init the scheduler based on the ArduPilot default scheduler
+	 */
+	HybridSched(AP_Scheduler* ap_sched);
 	virtual ~HybridSched();
 
 	void tics();
 	int run(uint32_t time_available);
+#if 0
 	int reset(uint32_t slot_time_micros);
-
+#else
+	int reset();
+	int reset(AP_Scheduler* ap_sched);
+#endif
 	int addTaskSpec(HSMode* initialMode);
 	int addTaskSpec(HSAutomata* specAuto);
 	int addPeriodTask(Task* task, uint16_t period_slots_min, uint16_t period_slots_max);
+	//void addPeriodTasks(const Task *tasks, uint8_t num_tasks);
 
 	// for testing
 	void setTestQ(std::deque<const char*>* testQ);

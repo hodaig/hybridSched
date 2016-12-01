@@ -88,12 +88,13 @@ public:
      */
     HSAutomata* simplify();
 
+#if 0 // TODO - done by 'simplify()'
     /*
      * cut all terminated modes
      * return - number of initial modes left after cutting
      */
     int cutDeadEnds();
-
+#endif
 private:
 
     //static HSMode** product(HSMode** auto1, unsigned int initialCount1, HSMode** auto2, unsigned int initialCount2, uint32_t slot_size_micros);
